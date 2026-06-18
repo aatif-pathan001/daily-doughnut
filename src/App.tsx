@@ -20,6 +20,8 @@ import { Header } from "./components/Header";
 import { Planner } from "./components/Planner";
 import { OngoingWorkTracker } from "./components/OngoingWorkTracker";
 import { CalendarPanel } from "./components/CalendarPanel";
+import { MentalNoise } from "./components/MentalNoise";
+import { DailyCheckOut } from "./components/DailyCheckOut";
 import { createGoogleCalendarEvent, deleteGoogleCalendarEvent } from "./googleCalendar";
 import { Sparkles, Calendar, Heart, Shield, Terminal, ArrowRight, RefreshCw } from "lucide-react";
 
@@ -105,6 +107,7 @@ export default function App() {
           calendarEventId: data.calendarEventId || null,
           createdAt: data.createdAt || new Date().toISOString(),
           duration: data.duration ?? 30,
+          deferralCount: data.deferralCount ?? 0,
         });
       });
       setTasks(loadedTasks);
@@ -334,20 +337,33 @@ export default function App() {
   };
 
   const handleRescheduleTask = async (id: string, newDateString: string) => {
+    const originalTask = tasks.find((t) => t.id === id);
+    if (!originalTask) return;
+
+    // Check if the date actually changed
+    const isDifferentDate = originalTask.date !== newDateString;
+    const newDeferralCount = isDifferentDate 
+      ? (originalTask.deferralCount || 0) + 1 
+      : (originalTask.deferralCount || 0);
+
     const defaultOrder = tasks.filter((t) => t.date === newDateString).length;
     if (user) {
       try {
         const taskRef = doc(db, "tasks", id);
-        await updateDoc(taskRef, { date: newDateString, order: defaultOrder });
+        await updateDoc(taskRef, { 
+          date: newDateString, 
+          order: defaultOrder,
+          deferralCount: newDeferralCount
+        });
         setTasks((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, date: newDateString, order: defaultOrder } : t))
+          prev.map((t) => (t.id === id ? { ...t, date: newDateString, order: defaultOrder, deferralCount: newDeferralCount } : t))
         );
       } catch (e) {
         console.error("Critical rescheduling update failed", e);
       }
     } else {
       const updated = tasks.map((t) =>
-        t.id === id ? { ...t, date: newDateString, order: defaultOrder } : t
+        t.id === id ? { ...t, date: newDateString, order: defaultOrder, deferralCount: newDeferralCount } : t
       );
       setTasks(updated);
       localStorage.setItem("planner_tasks", JSON.stringify(updated));
@@ -385,12 +401,15 @@ export default function App() {
 
   // Ongoing Work Tracker Operations
   const handleAddOngoingWork = async (title: string, reason: string) => {
-    // Auto-pause existing active works so only ONE is active (mindful container!)
+    const activeWorkList = ongoingWorks.filter((w) => w.status === "active");
+    const sortedActive = [...activeWorkList].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const mustPause = activeWorkList.length >= 3 ? sortedActive.slice(0, activeWorkList.length - 2) : [];
+    const mustPauseIds = new Set(mustPause.map((w) => w.id));
+
     if (user) {
       try {
         const batch = writeBatch(db);
-        const activeWorkList = ongoingWorks.filter((w) => w.status === "active");
-        activeWorkList.forEach((w) => {
+        mustPause.forEach((w) => {
           const wRef = doc(db, "ongoingWork", w.id);
           batch.update(wRef, { status: "paused" });
         });
@@ -406,7 +425,7 @@ export default function App() {
 
         const docRef = await addDoc(collection(db, "ongoingWork"), newWorkData);
         setOngoingWorks((prev) => [
-          ...prev.map((w) => (w.status === "active" ? { ...w, status: "paused" as const } : w)),
+          ...prev.map((w) => (mustPauseIds.has(w.id) ? { ...w, status: "paused" as const } : w)),
           { id: docRef.id, ...newWorkData },
         ]);
       } catch (err) {
@@ -422,7 +441,7 @@ export default function App() {
         createdAt: new Date().toISOString(),
       };
       const updated = [
-        ...ongoingWorks.map((w) => (w.status === "active" ? { ...w, status: "paused" as const } : w)),
+        ...ongoingWorks.map((w) => (mustPauseIds.has(w.id) ? { ...w, status: "paused" as const } : w)),
         newWork,
       ];
       setOngoingWorks(updated);
@@ -434,17 +453,26 @@ export default function App() {
     id: string,
     status: "active" | "completed" | "paused"
   ) => {
+    let mustPause: OngoingWork[] = [];
+    let mustPauseIds = new Set<string>();
+
+    if (status === "active") {
+      const activeWorkList = ongoingWorks.filter((w) => w.status === "active" && w.id !== id);
+      if (activeWorkList.length >= 3) {
+        const sortedActive = [...activeWorkList].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        mustPause = sortedActive.slice(0, activeWorkList.length - 2);
+        mustPauseIds = new Set(mustPause.map((w) => w.id));
+      }
+    }
+
     if (user) {
       try {
         const batch = writeBatch(db);
-        // If turning active, auto-pause existing active work items
-        if (status === "active") {
-          ongoingWorks
-            .filter((w) => w.status === "active" && w.id !== id)
-            .forEach((w) => {
-              const wRef = doc(db, "ongoingWork", w.id);
-              batch.update(wRef, { status: "paused" });
-            });
+        if (status === "active" && mustPause.length > 0) {
+          mustPause.forEach((w) => {
+            const wRef = doc(db, "ongoingWork", w.id);
+            batch.update(wRef, { status: "paused" });
+          });
         }
 
         const workRef = doc(db, "ongoingWork", id);
@@ -457,7 +485,7 @@ export default function App() {
             if (w.id === id) {
               return { ...w, status, completedAt };
             }
-            if (status === "active" && w.status === "active") {
+            if (status === "active" && mustPauseIds.has(w.id)) {
               return { ...w, status: "paused" as const };
             }
             return w;
@@ -473,7 +501,7 @@ export default function App() {
         if (w.id === id) {
           return { ...w, status, completedAt };
         }
-        if (status === "active" && w.status === "active") {
+        if (status === "active" && mustPauseIds.has(w.id)) {
           return { ...w, status: "paused" };
         }
         return w;
@@ -559,6 +587,17 @@ export default function App() {
                 onAddOngoingWork={handleAddOngoingWork}
                 onUpdateOngoingWorkStatus={handleUpdateOngoingWorkStatus}
                 onDeleteOngoingWork={handleDeleteOngoingWork}
+              />
+
+              {/* Quiet, 1-sentence checkout prompt unlocked at end of day */}
+              <DailyCheckOut
+                user={user}
+                selectedDate={selectedDate}
+              />
+
+              {/* Clean mental noise brain dump memory */}
+              <MentalNoise
+                user={user}
               />
             </div>
 

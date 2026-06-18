@@ -192,11 +192,19 @@ export const Planner: React.FC<PlannerProps> = ({
           </span>
         </div>
 
-        <div className="grid grid-cols-7 gap-1.5 md:gap-3">
+        <div className={`grid grid-cols-7 gap-1.5 md:gap-3 transition-all duration-300 ${
+          draggedTaskId ? "gap-2.5 md:gap-4.5 px-1.5 md:px-3 scale-[1.01]" : ""
+        }`}>
           {weekDays.map((day) => {
             const isSelected = selectedDate === day.dateString;
-            const dayTasksCount = tasks.filter((t) => t.date === day.dateString).length;
-            const completedCount = tasks.filter((t) => t.date === day.dateString && t.completed).length;
+            const dayTasks = tasks.filter((t) => t.date === day.dateString);
+            const dayTasksCount = dayTasks.length;
+            const completedCount = dayTasks.filter((t) => t.completed).length;
+
+            const totalDurationMins = dayTasks.reduce((sum, t) => sum + (t.duration || 0), 0);
+            const totalDurationHrs = totalDurationMins / 60;
+            const maxHrsPlannedGoal = 3;
+            const plannedRatio = Math.min(totalDurationHrs / maxHrsPlannedGoal, 1);
 
             return (
               <div
@@ -205,14 +213,18 @@ export const Planner: React.FC<PlannerProps> = ({
                 onDragOver={(e) => handleDragOverDay(e, day.dateString)}
                 onDragLeave={() => setHoveredDay(null)}
                 onDrop={(e) => handleDropOnDay(e, day.dateString)}
-                className={`cursor-pointer group flex flex-col items-center justify-between py-3 rounded-2xl border text-center transition duration-150 relative ${
-                  isSelected
+                className={`cursor-pointer group flex flex-col items-center justify-between py-3 rounded-2xl border text-center transition-all duration-300 relative ${
+                  draggedTaskId
+                    ? hoveredDay === day.dateString
+                      ? "bg-emerald-50 border-emerald-500 border-2 border-dashed scale-105 text-emerald-950 shadow-md"
+                      : "bg-[#FDFDFD]/60 border-dashed border-2 border-neutral-300 text-neutral-400 scale-[0.98]"
+                    : isSelected
                     ? "bg-neutral-950 text-white border-neutral-950 shadow-md"
                     : hoveredDay === day.dateString
                     ? "bg-neutral-200 text-neutral-900 border-neutral-900 scale-105"
                     : day.isToday
                     ? "bg-white border-neutral-400 text-neutral-900 font-semibold"
-                    : "bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-200/60"
+                    : "bg-[#FDFDFD] hover:bg-neutral-50 text-neutral-700 border-gray-100"
                 }`}
               >
                 <span className={`text-[9px] font-semibold tracking-tight uppercase ${
@@ -220,20 +232,52 @@ export const Planner: React.FC<PlannerProps> = ({
                 }`}>
                   {day.dayName}
                 </span>
-                <span className="text-sm font-semibold tracking-tight my-1">
-                  {day.dateNum}
-                </span>
+
+                <div className="flex items-center gap-1.5 my-1" title={`${totalDurationHrs.toFixed(1)}/3 hrs planned`}>
+                  <span className="text-sm font-semibold tracking-tight">
+                    {day.dateNum}
+                  </span>
+                  {/* Miniature ring gauge showing planned hours ratio */}
+                  <div className="relative flex items-center justify-center shrink-0">
+                    <svg className="w-3.5 h-3.5 transform -rotate-90" viewBox="0 0 20 20">
+                      <circle
+                        cx="10"
+                        cy="10"
+                        r="7.5"
+                        className={isSelected ? "stroke-white/10" : "stroke-neutral-100"}
+                        strokeWidth="2.5"
+                        fill="transparent"
+                      />
+                      <circle
+                        cx="10"
+                        cy="10"
+                        r="7.5"
+                        className={isSelected ? "stroke-emerald-400" : "stroke-emerald-500"}
+                        strokeWidth="2.5"
+                        fill="transparent"
+                        strokeDasharray={2 * Math.PI * 7.5}
+                        strokeDashoffset={2 * Math.PI * 7.5 * (1 - plannedRatio)}
+                        strokeLinecap="round"
+                        style={{ transition: "stroke-dashoffset 0.3s ease" }}
+                      />
+                    </svg>
+                  </div>
+                </div>
                 
-                {/* Visual completion meter inside weekday item */}
-                {dayTasksCount > 0 ? (
-                  <div className="flex items-center gap-0.5 mt-1">
+                <div className="flex flex-col items-center gap-0.5">
+                  {/* Visual completion meter inside weekday item */}
+                  {dayTasksCount > 0 ? (
                     <span className={`text-[9px] ${isSelected ? "text-neutral-300" : "text-neutral-500"}`}>
                       {completedCount}/{dayTasksCount}
                     </span>
-                  </div>
-                ) : (
-                  <span className="w-1 h-1 rounded-full bg-neutral-300 mt-2" />
-                )}
+                  ) : (
+                    <span className="w-1 h-1 rounded-full bg-neutral-300 my-0.5" />
+                  )}
+                  {/* Hour status subtitle */}
+                  <span className={`text-[8.5px] font-mono leading-none ${isSelected ? 'text-neutral-400' : 'text-neutral-400'}`}>
+                    {totalDurationHrs > 0 ? `${totalDurationHrs.toFixed(1)}h` : "—"}
+                  </span>
+                </div>
               </div>
             );
           })}
@@ -364,9 +408,20 @@ export const Planner: React.FC<PlannerProps> = ({
                           {task.title}
                         </span>
                         {task.duration && (
-                          <span className="text-[10px] font-mono text-neutral-400 font-medium">
-                            {task.duration} min duration
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] font-mono text-neutral-400 font-medium">
+                              {task.duration} min duration
+                            </span>
+                            {task.deferralCount && task.deferralCount >= 2 ? (
+                              <div className="relative inline-block group/deferral">
+                                <span className="inline-flex items-center justify-center w-2 h-2 rounded-full bg-amber-400 hover:bg-amber-500 cursor-pointer animate-pulse shrink-0" />
+                                <div className="absolute left-0 bottom-full mb-2 hidden group-hover/deferral:block w-64 bg-zinc-950 text-white text-[10px] p-3 rounded-2xl shadow-xl leading-relaxed font-normal tracking-wide z-50 text-left border border-zinc-800 animate-in fade-in slide-in-from-bottom-1">
+                                  <p className="font-bold text-amber-300 mb-1 text-[9.5px] tracking-wider uppercase">Mindful Check</p>
+                                  <p className="text-zinc-200 text-[10.5px] leading-relaxed">This task has been deferred twice. Do you want to split it into smaller, more approachable actions?</p>
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
                         )}
                       </div>
                     </div>

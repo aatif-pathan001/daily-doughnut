@@ -19,7 +19,7 @@ export const OngoingWorkTracker: React.FC<OngoingWorkTrackerProps> = ({
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const activeWork = ongoingWorks.find((w) => w.status === "active");
+  const activeWorks = ongoingWorks.filter((w) => w.status === "active");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,58 +39,69 @@ export const OngoingWorkTracker: React.FC<OngoingWorkTrackerProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 1. Mindful Flow Hero Block */}
-      {activeWork ? (
-        <div className="bg-[#151515] text-white rounded-3xl p-6 md:p-8 shadow-sm flex flex-col relative overflow-hidden transition duration-150">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2 text-[#4ADE80]">
-              <div className="w-1.5 h-1.5 bg-[#4ADE80] rounded-full animate-pulse"></div>
-              <span className="text-[10px] font-bold uppercase tracking-widest">Active Focus Flow</span>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => onUpdateOngoingWorkStatus(activeWork.id, "paused")}
-                className="p-1.5 hover:bg-white/10 rounded-lg text-neutral-400 hover:text-white transition"
-                title="Pause active work"
-              >
-                <Pause className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => onUpdateOngoingWorkStatus(activeWork.id, "completed")}
-                className="p-1.5 hover:bg-white/10 rounded-lg text-emerald-400 hover:text-emerald-300 transition"
-                title="Complete active work"
-              >
-                <CheckCircle className="w-4 h-4" />
-              </button>
-            </div>
+      {/* 1. Mindful Flow Hero Block - Stack up to 3 Active Focus Containers */}
+      {activeWorks.length > 0 ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-semibold">
+              Active Focus Containers ({activeWorks.length}/3)
+            </span>
           </div>
+          {activeWorks.map((work) => (
+            <div
+              key={work.id}
+              className="bg-[#151515] text-white rounded-3xl p-6 shadow-sm flex flex-col relative overflow-hidden transition duration-150 animate-in fade-in slide-in-from-top-2"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 text-[#4ADE80]">
+                  <div className="w-1.5 h-1.5 bg-[#4ADE80] rounded-full animate-pulse"></div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest font-mono">Active Flow</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onUpdateOngoingWorkStatus(work.id, "paused")}
+                    className="p-1.5 hover:bg-white/10 rounded-lg text-neutral-400 hover:text-white transition"
+                    title="Pause active work"
+                  >
+                    <Pause className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => onUpdateOngoingWorkStatus(work.id, "completed")}
+                    className="p-1.5 hover:bg-white/10 rounded-lg text-emerald-400 hover:text-emerald-300 transition"
+                    title="Complete active work"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
 
-          <h3 className="text-2xl font-light text-white mb-2 tracking-tight">
-            {activeWork.title}
-          </h3>
-          <p className="text-gray-500 text-xs italic mb-6">Active session started</p>
+              <h3 className="text-xl font-light text-white mb-2 tracking-tight">
+                {work.title}
+              </h3>
 
-          <div>
-            <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">The Purpose (Reasoning)</h4>
-            <div className="bg-[#222] rounded-2xl p-4 border border-[#333]">
-              <p className="text-xs text-gray-300 leading-relaxed font-light italic">
-                &ldquo;{activeWork.reason}&rdquo;
-              </p>
-            </div>
-          </div>
+              <div>
+                <h4 className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1.5 font-mono">The Purpose</h4>
+                <div className="bg-[#222] rounded-xl p-3 border border-[#333]/40">
+                  <p className="text-[11px] text-gray-300 leading-relaxed font-light italic">
+                    &ldquo;{work.reason}&rdquo;
+                  </p>
+                </div>
+              </div>
 
-          {/* Calming interactive breath element */}
-          <div className="mt-6 flex items-center gap-3 bg-[#222]/50 p-3.5 rounded-2xl border border-[#333]/40">
-            <div className="relative flex items-center justify-center shrink-0">
-              <div className="w-4 h-4 rounded-full bg-[#4ADE80]/20 absolute animate-ping" />
-              <div className="w-4 h-4 rounded-full bg-[#4ADE80] flex items-center justify-center">
-                <Heart className="w-2 h-2 text-[#151515] fill-[#151515]" />
+              {/* Calming interactive breath element */}
+              <div className="mt-4 flex items-center gap-2.5 bg-[#222]/30 p-3 rounded-xl border border-[#333]/30">
+                <div className="relative flex items-center justify-center shrink-0">
+                  <div className="w-3 h-3 rounded-full bg-[#4ADE80]/30 absolute animate-ping" />
+                  <div className="w-3.5 h-3.5 rounded-full bg-[#4ADE80] flex items-center justify-center">
+                    <Heart className="w-2.5 h-2.5 text-[#151515] fill-[#151515]" />
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-400 leading-snug font-light">
+                  Take 3 deep breaths to ground your focus on this task.
+                </p>
               </div>
             </div>
-            <p className="text-[10.5px] text-gray-400 leading-snug">
-              Take 3 conscious deep breaths to establish intentionality before continuing.
-            </p>
-          </div>
+          ))}
         </div>
       ) : (
         <div className="bg-white border border-gray-100 rounded-3xl p-6 text-center shadow-sm">

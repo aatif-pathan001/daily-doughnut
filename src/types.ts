@@ -10,6 +10,7 @@ export interface TaskItem {
   createdAt: string;
   duration?: number; // duration in minutes
   description?: string;
+  deferralCount?: number; // tracks how many times a task was rescheduled
 }
 
 export interface OngoingWork {
@@ -36,4 +37,12 @@ export interface CalendarEvent {
     date?: string;
     timeZone?: string;
   };
+}
+
+export interface DailyReflection {
+  id: string;
+  uid: string;
+  date: string; // "YYYY-MM-DD"
+  text: string;
+  createdAt: string;
 }
