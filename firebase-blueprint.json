@@ -1,0 +1,46 @@
+{
+  "entities": {
+    "Task": {
+      "title": "Task",
+      "description": "A scheduled or planned task for the day or week, optional Google Calendar event mapping.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["day", "week"] },
+        "date": { "type": "string", "description": "YYYY-MM-DD format" },
+        "completed": { "type": "boolean" },
+        "order": { "type": "number" },
+        "calendarEventId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "uid", "title", "type", "completed", "order", "createdAt"]
+    },
+    "OngoingWork": {
+      "title": "OngoingWork",
+      "description": "Mindful tracking of what the user is currently working on, including a required reasoning field.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "title": { "type": "string" },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "completed", "paused"] },
+        "createdAt": { "type": "string" },
+        "completedAt": { "type": "string" }
+      },
+      "required": ["id", "uid", "title", "reason", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Global tasks collection partitioned by user uid."
+    },
+    "ongoingWork/{workId}": {
+      "schema": "OngoingWork",
+      "description": "User's current ongoing work items partitioned by user uid."
+    }
+  }
+}

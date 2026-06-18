@@ -1,0 +1,6 @@
+{
+  "name": "Daily & Weekly Planner",
+  "description": "A minimalist daily and weekly planner with Google Calendar synchronization, drag-and-drop task prioritization, and ongoing mindful work tracking with reasoning.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
