@@ -74,16 +74,16 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="border-b border-gray-100 bg-white/70 backdrop-blur-md sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 py-3 md:px-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         {/* Left Section: Branding & Clock */}
-        <div className="flex items-center gap-3 group cursor-pointer">
-          <div className="bg-neutral-950 text-white p-2 rounded-xl flex items-center justify-center shadow-md shadow-neutral-950/10 group-hover:bg-neutral-900 transition-colors duration-200">
-            <Donut className="w-5 h-5 text-rose-300 transition-transform duration-500 group-hover:rotate-180" />
+        <div className="flex items-center gap-3">
+          <div className="bg-neutral-950 text-white p-2 rounded-xl flex items-center justify-center">
+            <Calendar className="w-5 h-5 text-neutral-100" />
           </div>
           <div>
             <h1 className="font-display font-bold text-lg tracking-tight text-neutral-900">
-              Daily Doughnut
+              Intentional
             </h1>
             <p className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">
-              Intentional Daily Planner
+              daily & weekly planner
             </p>
           </div>
           <div className="hidden sm:block h-6 w-px bg-neutral-200 mx-1"></div>
@@ -104,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Right Section: Auth with Google styled GSI button */}
         <div className="flex items-center justify-between md:justify-end gap-3 relative" id="header-right-auth-container">
           {error && (
-            <div 
+            <div
               id="google-auth-error-banner"
               className="absolute right-0 -bottom-8 bg-red-50 border border-red-100 text-red-600 text-[10px] rounded-full px-3 py-1 font-mono tracking-tight shadow-sm whitespace-nowrap animate-in fade-in slide-in-from-top-1 z-50 flex items-center gap-1"
             >
