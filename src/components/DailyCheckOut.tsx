@@ -176,7 +176,7 @@ export function DailyCheckOut({ user, selectedDate }: DailyCheckOutProps) {
               id="checkout-reflection-input"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder="What intention did you honor today? (e.g. 'I paced my meetings perfectly and stayed present...')"
+              placeholder="How was my focus today, and what am I setting down?"
               maxLength={200}
               required
               className="w-full text-xs font-light text-neutral-700 bg-gray-50/50 hover:bg-gray-50 focus:bg-white border border-gray-100 focus:border-neutral-900 rounded-2xl px-4 py-3 placeholder-neutral-400 focus:outline-none transition-colors duration-150 leading-relaxed pr-8"

@@ -15,7 +15,7 @@ import {
   getFirestore,
 } from "firebase/firestore";
 import { initAuth, db, testFirestoreConnection, auth, googleSignIn } from "./firebase";
-import { TaskItem, OngoingWork } from "./types";
+import { TaskItem, OngoingWork, Subtask } from "./types";
 import { Header } from "./components/Header";
 import { Planner } from "./components/Planner";
 import { OngoingWorkTracker } from "./components/OngoingWorkTracker";
@@ -119,6 +119,8 @@ export default function App() {
           status: data.status || "active",
           createdAt: data.createdAt || new Date().toISOString(),
           completedAt: data.completedAt || null,
+          targetCompletionDate: data.targetCompletionDate || "",
+          subtasks: data.subtasks || [],
         });
       });
       setOngoingWorks(loadedWorks);
@@ -252,6 +254,22 @@ export default function App() {
     }
   };
 
+  const handleUpdateTaskDuration = async (id: string, duration: number) => {
+    if (user) {
+      try {
+        const taskRef = doc(db, "tasks", id);
+        await updateDoc(taskRef, { duration });
+        setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, duration } : t)));
+      } catch (e) {
+        console.error("Failed to update task duration", e);
+      }
+    } else {
+      const updated = tasks.map((t) => (t.id === id ? { ...t, duration } : t));
+      setTasks(updated);
+      localStorage.setItem("planner_tasks", JSON.stringify(updated));
+    }
+  };
+
   const handleDeleteTask = async (id: string) => {
     if (user) {
       try {
@@ -332,7 +350,12 @@ export default function App() {
   };
 
   // Ongoing Work Tracker Operations
-  const handleAddOngoingWork = async (title: string, reason: string) => {
+  const handleAddOngoingWork = async (
+    title: string,
+    reason: string,
+    targetCompletionDate?: string,
+    initialSubtasks: Subtask[] = []
+  ) => {
     const activeWorkList = ongoingWorks.filter((w) => w.status === "active");
     const sortedActive = [...activeWorkList].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     const mustPause = activeWorkList.length >= 3 ? sortedActive.slice(0, activeWorkList.length - 2) : [];
@@ -353,6 +376,8 @@ export default function App() {
           reason,
           status: "active" as const,
           createdAt: new Date().toISOString(),
+          targetCompletionDate: targetCompletionDate || "",
+          subtasks: initialSubtasks,
         };
 
         const docRef = await addDoc(collection(db, "ongoingWork"), newWorkData);
@@ -371,6 +396,8 @@ export default function App() {
         reason,
         status: "active",
         createdAt: new Date().toISOString(),
+        targetCompletionDate: targetCompletionDate || "",
+        subtasks: initialSubtasks,
       };
       const updated = [
         ...ongoingWorks.map((w) => (mustPauseIds.has(w.id) ? { ...w, status: "paused" as const } : w)),
@@ -459,6 +486,26 @@ export default function App() {
     }
   };
 
+  const handleUpdateOngoingWork = async (id: string, updates: Partial<OngoingWork>) => {
+    if (user) {
+      try {
+        const wRef = doc(db, "ongoingWork", id);
+        await updateDoc(wRef, updates);
+        setOngoingWorks((prev) =>
+          prev.map((w) => (w.id === id ? { ...w, ...updates } : w))
+        );
+      } catch (err) {
+        console.error("Firestore update failed for ongoing work", err);
+      }
+    } else {
+      const updated = ongoingWorks.map((w) =>
+        w.id === id ? { ...w, ...updates } : w
+      ) as OngoingWork[];
+      setOngoingWorks(updated);
+      localStorage.setItem("planner_works", JSON.stringify(updated));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col font-sans select-none antialiased text-[#1A1A1A]">
       {/* 1. Styled Header with Clock, User integration */}
@@ -493,6 +540,7 @@ export default function App() {
                 onDeleteTask={handleDeleteTask}
                 onReorderTasks={handleReorderTasks}
                 onRescheduleTask={handleRescheduleTask}
+                onUpdateTaskDuration={handleUpdateTaskDuration}
               />
 
               {/* Side-by-side grid underneath the Planner (on md+ screens) to optimize spacing and height balance */}
@@ -520,6 +568,8 @@ export default function App() {
                 onAddOngoingWork={handleAddOngoingWork}
                 onUpdateOngoingWorkStatus={handleUpdateOngoingWorkStatus}
                 onDeleteOngoingWork={handleDeleteOngoingWork}
+                onUpdateOngoingWork={handleUpdateOngoingWork}
+                onAddTask={handleAddTask}
               />
             </div>
 

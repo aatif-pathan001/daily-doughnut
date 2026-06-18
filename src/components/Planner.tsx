@@ -23,6 +23,7 @@ interface PlannerProps {
   onDeleteTask: (id: string) => Promise<void>;
   onReorderTasks: (reorderedTasks: TaskItem[]) => Promise<void>;
   onRescheduleTask: (id: string, newDate: string) => Promise<void>;
+  onUpdateTaskDuration: (id: string, duration: number) => Promise<void>;
 }
 
 export const Planner: React.FC<PlannerProps> = ({
@@ -34,6 +35,7 @@ export const Planner: React.FC<PlannerProps> = ({
   onDeleteTask,
   onReorderTasks,
   onRescheduleTask,
+  onUpdateTaskDuration,
 }) => {
   const [newTitle, setNewTitle] = useState("");
   const [duration, setDuration] = useState<number>(30);
@@ -387,15 +389,29 @@ export const Planner: React.FC<PlannerProps> = ({
                         }`}>
                           {task.title}
                         </span>
-                        {task.duration && (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] font-mono text-neutral-400 font-medium">
-                              {task.duration} min duration
-                            </span>
+                        {task.duration !== undefined && (
+                          <div className="flex items-center gap-1.5 flex-wrap mt-1" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-1 bg-neutral-100 hover:bg-neutral-200 hover:text-black border border-neutral-200/50 text-neutral-500 rounded-lg px-2 py-0.5 transition text-[10px] font-medium font-sans">
+                              <Clock className="w-3 h-3 text-neutral-400 shrink-0" />
+                              <select
+                                value={task.duration}
+                                onChange={(e) => onUpdateTaskDuration(task.id, Number(e.target.value))}
+                                className="bg-transparent border-none p-0 text-[10px] font-semibold text-neutral-700 focus:outline-none cursor-pointer"
+                              >
+                                <option value={15}>15 m</option>
+                                <option value={30}>30 m</option>
+                                <option value={45}>45 m</option>
+                                <option value={60}>1h</option>
+                                <option value={90}>1.5h</option>
+                                <option value={120}>2h</option>
+                                <option value={180}>3h</option>
+                                <option value={240}>4h</option>
+                              </select>
+                            </div>
                             {task.deferralCount && task.deferralCount >= 2 ? (
                               <div className="relative inline-block group/deferral">
                                 <span className="inline-flex items-center justify-center w-2 h-2 rounded-full bg-amber-400 hover:bg-amber-500 cursor-pointer animate-pulse shrink-0" />
-                                <div className="absolute left-0 bottom-full mb-2 hidden group-hover/deferral:block w-64 bg-zinc-950 text-white text-[10px] p-3 rounded-2xl shadow-xl leading-relaxed font-normal tracking-wide z-50 text-left border border-zinc-800 animate-in fade-in slide-in-from-bottom-1">
+                                <div className="absolute left-0 top-full mt-2 hidden group-hover/deferral:block w-64 bg-zinc-950 text-white text-[10px] p-3 rounded-2xl shadow-xl leading-relaxed font-normal tracking-wide z-[99] text-left border border-zinc-800 animate-in fade-in slide-in-from-top-1">
                                   <p className="font-bold text-amber-300 mb-1 text-[9.5px] tracking-wider uppercase">Mindful Check</p>
                                   <p className="text-zinc-200 text-[10.5px] leading-relaxed">This task has been deferred twice. Do you want to split it into smaller, more approachable actions?</p>
                                 </div>

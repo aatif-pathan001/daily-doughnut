@@ -13,6 +13,14 @@ export interface TaskItem {
   deferralCount?: number; // tracks how many times a task was rescheduled
 }
 
+export interface Subtask {
+  id: string;
+  title: string;
+  completed: boolean;
+  assignedDate?: string; // "YYYY-MM-DD" style key
+  syncedTaskId?: string | null; // references TaskItem id if pushed to Planner
+}
+
 export interface OngoingWork {
   id: string;
   uid: string;
@@ -21,6 +29,8 @@ export interface OngoingWork {
   status: "active" | "completed" | "paused";
   createdAt: string;
   completedAt?: string | null;
+  targetCompletionDate?: string; // "YYYY-MM-DD" style target completion date
+  subtasks?: Subtask[];
 }
 
 export interface CalendarEvent {
