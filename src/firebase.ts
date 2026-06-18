@@ -29,16 +29,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Use Google Auth Provider with Google Calendar scopes
-export const calendarScopes = [
-  "https://www.googleapis.com/auth/calendar",
-  "https://www.googleapis.com/auth/calendar.events",
-];
-
 const provider = new GoogleAuthProvider();
-calendarScopes.forEach((scope) => {
-  provider.addScope(scope);
-});
 
 // Cache the access token in memory (never storage)
 let cachedAccessToken: string | null = null;

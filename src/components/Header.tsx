@@ -1,18 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { User } from "firebase/auth";
-import { LogOut, Calendar, CheckCircle, Sparkles, AlertCircle } from "lucide-react";
+import { LogOut, Calendar, CheckCircle, Sparkles, AlertCircle, Donut } from "lucide-react";
 import { googleSignIn, logout } from "../firebase";
 
 interface HeaderProps {
   user: User | null;
-  googleToken: string | null;
   onLoginSuccess: (user: User, token: string) => void;
   onLogoutSuccess: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   user,
-  googleToken,
   onLoginSuccess,
   onLogoutSuccess,
 }) => {
@@ -43,7 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
     } catch (err: any) {
       console.warn("Sign in issue encountered:", err);
       if (err?.code === "auth/popup-closed-by-user") {
-        setError("Sign-in cancelled. Use Google to sync calendar!");
+        setError("Sign-in cancelled.");
       } else if (err?.code === "auth/cancelled-popup-request") {
         setError("Sign-in window already open.");
       } else {
@@ -76,16 +74,16 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="border-b border-gray-100 bg-white/70 backdrop-blur-md sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 py-3 md:px-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         {/* Left Section: Branding & Clock */}
-        <div className="flex items-center gap-3">
-          <div className="bg-neutral-950 text-white p-2 rounded-xl flex items-center justify-center">
-            <Calendar className="w-5 h-5 text-neutral-100" />
+        <div className="flex items-center gap-3 group cursor-pointer">
+          <div className="bg-neutral-950 text-white p-2 rounded-xl flex items-center justify-center shadow-md shadow-neutral-950/10 group-hover:bg-neutral-900 transition-colors duration-200">
+            <Donut className="w-5 h-5 text-rose-300 transition-transform duration-500 group-hover:rotate-180" />
           </div>
           <div>
             <h1 className="font-display font-bold text-lg tracking-tight text-neutral-900">
-              Intentional
+              Daily Doughnut
             </h1>
             <p className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">
-              daily & weekly planner
+              Intentional Daily Planner
             </p>
           </div>
           <div className="hidden sm:block h-6 w-px bg-neutral-200 mx-1"></div>
@@ -143,11 +141,6 @@ export const Header: React.FC<HeaderProps> = ({
                     {user.displayName || "User"}
                   </p>
                 </div>
-                {googleToken ? (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Google Calendar Connected" />
-                ) : (
-                  <span className="w-2 h-2 rounded-full bg-amber-500" title="Calendar Auth Pending" />
-                )}
               </button>
 
               {showProfileMenu && (
@@ -159,27 +152,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <p className="text-[10px] text-neutral-400 truncate">
                       {user.email}
                     </p>
-                    <div className="mt-1.5 flex items-center gap-1.5 text-[10px]">
-                      {googleToken ? (
-                        <span className="text-emerald-600 font-medium flex items-center gap-1">
-                          <CheckCircle className="w-3 h-3" /> Calendar Connected
-                        </span>
-                      ) : (
-                        <span className="text-amber-600 font-medium flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" /> Reconnect Calendar
-                        </span>
-                      )}
-                    </div>
                   </div>
-                  {!googleToken && (
-                    <button
-                      onClick={handleSignIn}
-                      className="w-full text-left px-4 py-2 text-xs text-neutral-700 hover:bg-gray-50 transition flex items-center gap-2"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-neutral-500" />
-                      Sync Calendar Scopes
-                    </button>
-                  )}
                   <button
                     onClick={handleSignOut}
                     className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition flex items-center gap-2"

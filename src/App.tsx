@@ -14,20 +14,17 @@ import {
   DocumentData,
   getFirestore,
 } from "firebase/firestore";
-import { initAuth, db, testFirestoreConnection, auth, calendarScopes, googleSignIn } from "./firebase";
+import { initAuth, db, testFirestoreConnection, auth, googleSignIn } from "./firebase";
 import { TaskItem, OngoingWork } from "./types";
 import { Header } from "./components/Header";
 import { Planner } from "./components/Planner";
 import { OngoingWorkTracker } from "./components/OngoingWorkTracker";
-import { CalendarPanel } from "./components/CalendarPanel";
 import { MentalNoise } from "./components/MentalNoise";
 import { DailyCheckOut } from "./components/DailyCheckOut";
-import { createGoogleCalendarEvent, deleteGoogleCalendarEvent } from "./googleCalendar";
 import { Sparkles, Calendar, Heart, Shield, Terminal, ArrowRight, RefreshCw } from "lucide-react";
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [googleToken, setGoogleToken] = useState<string | null>(null);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [ongoingWorks, setOngoingWorks] = useState<OngoingWork[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,15 +48,11 @@ export default function App() {
   // Sync auth state listener
   useEffect(() => {
     const unsubscribe = initAuth(
-      (currentUser, token) => {
+      (currentUser) => {
         setUser(currentUser);
-        if (token) {
-          setGoogleToken(token);
-        }
       },
       () => {
         setUser(null);
-        setGoogleToken(null);
         // Clear collections, let local storage load instead
         loadLocalStorageData();
       }
@@ -138,9 +131,8 @@ export default function App() {
   };
 
   // Login handler
-  const handleLoginSuccess = async (currentUser: User, token: string) => {
+  const handleLoginSuccess = async (currentUser: User) => {
     setUser(currentUser);
-    setGoogleToken(token);
     // Move any existing local items to firestore (migration helper!)
     const migratedTasksCount = await migrateLocalDataToCloud(currentUser.uid);
     await fetchFirestoreData(currentUser.uid);
@@ -148,7 +140,6 @@ export default function App() {
 
   const handleLogoutSuccess = () => {
     setUser(null);
-    setGoogleToken(null);
     setTasks([]);
     setOngoingWorks([]);
     // Restore default loading
@@ -206,28 +197,9 @@ export default function App() {
     title: string,
     dateValue: string,
     type: "day" | "week",
-    durationVal = 30,
-    syncToCalendar = false
+    durationVal = 30
   ) => {
     const defaultOrder = tasks.filter((t) => t.date === dateValue).length;
-    let calendarEventId: string | null = null;
-
-    // Trigger Google Calendar create if selected
-    if (syncToCalendar && googleToken) {
-      try {
-        const startDateTime = new Date(`${dateValue}T09:00:00`);
-        const endDateTime = new Date(startDateTime.getTime() + durationVal * 60 * 1000);
-        calendarEventId = await createGoogleCalendarEvent(
-          googleToken,
-          title,
-          startDateTime.toISOString(),
-          endDateTime.toISOString(),
-          `Intentional slot created via Planner. Duration: ${durationVal}m`
-        );
-      } catch (err: any) {
-        console.error("Google Calendar write failed, skipping sync details.", err);
-      }
-    }
 
     const newTaskData = {
       uid: user ? user.uid : "local",
@@ -236,7 +208,7 @@ export default function App() {
       date: dateValue,
       completed: false,
       order: defaultOrder,
-      calendarEventId,
+      calendarEventId: null,
       createdAt: new Date().toISOString(),
       duration: durationVal,
     };
@@ -281,17 +253,6 @@ export default function App() {
   };
 
   const handleDeleteTask = async (id: string) => {
-    const taskToDelete = tasks.find((t) => t.id === id);
-
-    // Delete calendar slot if mapped
-    if (taskToDelete?.calendarEventId && googleToken) {
-      try {
-        await deleteGoogleCalendarEvent(googleToken, taskToDelete.calendarEventId);
-      } catch (e) {
-        console.error("Couldn't remove Google Calendar event matching deletion", e);
-      }
-    }
-
     if (user) {
       try {
         const taskRef = doc(db, "tasks", id);
@@ -367,35 +328,6 @@ export default function App() {
       );
       setTasks(updated);
       localStorage.setItem("planner_tasks", JSON.stringify(updated));
-    }
-  };
-
-  const handleSyncTaskToGoogleCalendar = async (id: string) => {
-    if (!googleToken) return;
-    const task = tasks.find((t) => t.id === id);
-    if (!task) return;
-
-    try {
-      const startDateTime = new Date(`${task.date}T09:00:00`);
-      const endDateTime = new Date(startDateTime.getTime() + (task.duration || 30) * 60 * 1000);
-      const calendarEventId = await createGoogleCalendarEvent(
-        googleToken,
-        task.title,
-        startDateTime.toISOString(),
-        endDateTime.toISOString(),
-        `Intentional focus slot. Duration: ${task.duration || 30}m`
-      );
-
-      // Save back
-      if (user) {
-        const taskRef = doc(db, "tasks", id);
-        await updateDoc(taskRef, { calendarEventId });
-      }
-      setTasks((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, calendarEventId } : t))
-      );
-    } catch (err) {
-      console.error(err);
     }
   };
 
@@ -527,17 +459,11 @@ export default function App() {
     }
   };
 
-  // Quick helper to add task when someone clicks calendar agenda item
-  const handleQuickAddTask = async (title: string, duration = 30) => {
-    await handleAddTask(title, selectedDate, "day", duration, false);
-  };
-
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col font-sans select-none antialiased text-[#1A1A1A]">
       {/* 1. Styled Header with Clock, User integration */}
       <Header
         user={user}
-        googleToken={googleToken}
         onLoginSuccess={handleLoginSuccess}
         onLogoutSuccess={handleLogoutSuccess}
       />
@@ -555,7 +481,7 @@ export default function App() {
           
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             
-            {/* Left and Center Bento Grid Pane (8/12 of columns): Planner space */}
+            {/* Left and Center Bento Grid Pane (8/12 of columns): Planner space + Reflections & brain dumps */}
             <div className="lg:col-span-8 space-y-8">
               
               <Planner
@@ -567,37 +493,33 @@ export default function App() {
                 onDeleteTask={handleDeleteTask}
                 onReorderTasks={handleReorderTasks}
                 onRescheduleTask={handleRescheduleTask}
-                onSyncTaskToGoogleCalendar={handleSyncTaskToGoogleCalendar}
-                googleToken={googleToken}
               />
+
+              {/* Side-by-side grid underneath the Planner (on md+ screens) to optimize spacing and height balance */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Quiet, 1-sentence checkout prompt unlocked at end of day */}
+                <DailyCheckOut
+                  user={user}
+                  selectedDate={selectedDate}
+                />
+
+                {/* Clean mental noise brain dump memory */}
+                <MentalNoise
+                  user={user}
+                />
+              </div>
+
             </div>
 
-            {/* Right Bento Grid Pane (4/12 of columns): Calendar + Ongoing Mindful Work */}
+            {/* Right Bento Grid Pane (4/12 of columns): Ongoing Focus Flow Tracks */}
             <div className="lg:col-span-4 space-y-8">
               
-              {/* Google calendar real side-by-side feed */}
-              <CalendarPanel
-                googleToken={googleToken}
-                onQuickaddTask={handleQuickAddTask}
-              />
-
               {/* Dedicated track place for ongoing works with required reasoning */}
               <OngoingWorkTracker
                 ongoingWorks={ongoingWorks}
                 onAddOngoingWork={handleAddOngoingWork}
                 onUpdateOngoingWorkStatus={handleUpdateOngoingWorkStatus}
                 onDeleteOngoingWork={handleDeleteOngoingWork}
-              />
-
-              {/* Quiet, 1-sentence checkout prompt unlocked at end of day */}
-              <DailyCheckOut
-                user={user}
-                selectedDate={selectedDate}
-              />
-
-              {/* Clean mental noise brain dump memory */}
-              <MentalNoise
-                user={user}
               />
             </div>
 

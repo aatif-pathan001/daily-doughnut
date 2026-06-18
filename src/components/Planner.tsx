@@ -18,13 +18,11 @@ interface PlannerProps {
   tasks: TaskItem[];
   selectedDate: string; // YYYY-MM-DD
   onSetSelectedDate: (date: string) => void;
-  onAddTask: (title: string, date: string, type: "day" | "week", duration?: number, syncToCalendar?: boolean) => Promise<void>;
+  onAddTask: (title: string, date: string, type: "day" | "week", duration?: number) => Promise<void>;
   onToggleComplete: (id: string, completed: boolean) => Promise<void>;
   onDeleteTask: (id: string) => Promise<void>;
   onReorderTasks: (reorderedTasks: TaskItem[]) => Promise<void>;
   onRescheduleTask: (id: string, newDate: string) => Promise<void>;
-  onSyncTaskToGoogleCalendar: (id: string) => Promise<void>;
-  googleToken: string | null;
 }
 
 export const Planner: React.FC<PlannerProps> = ({
@@ -36,12 +34,9 @@ export const Planner: React.FC<PlannerProps> = ({
   onDeleteTask,
   onReorderTasks,
   onRescheduleTask,
-  onSyncTaskToGoogleCalendar,
-  googleToken,
 }) => {
   const [newTitle, setNewTitle] = useState("");
   const [duration, setDuration] = useState<number>(30);
-  const [syncToCal, setSyncToCal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
@@ -97,11 +92,9 @@ export const Planner: React.FC<PlannerProps> = ({
         newTitle.trim(),
         type === "day" ? selectedDate : "weekly",
         type,
-        duration,
-        syncToCal
+        duration
       );
       setNewTitle("");
-      setSyncToCal(false);
     } catch (err) {
       console.error(err);
     } finally {
@@ -340,19 +333,6 @@ export const Planner: React.FC<PlannerProps> = ({
                 </button>
               </div>
             </div>
-
-            {/* Optional Google calendar sync check */}
-            {googleToken && (
-              <label className="flex items-center gap-2 text-[11px] text-neutral-500 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={syncToCal}
-                  onChange={(e) => setSyncToCal(e.target.checked)}
-                  className="rounded text-neutral-900 focus:ring-0 w-3.5 h-3.5 border-neutral-300"
-                />
-                <span>Sync this slot directly to Google Calendar</span>
-              </label>
-            )}
           </form>
 
           {/* Task prioritize list */}
@@ -427,23 +407,6 @@ export const Planner: React.FC<PlannerProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0 ml-4">
-                      {/* Quick google calendar syncing status/trigger */}
-                      {task.calendarEventId ? (
-                        <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-md font-medium tracking-tight flex items-center gap-0.5" title="Synced with Google Calendar">
-                          Synced
-                        </span>
-                      ) : (
-                        googleToken && (
-                          <button
-                            onClick={() => onSyncTaskToGoogleCalendar(task.id)}
-                            className="text-[10px] hover:bg-neutral-950 hover:text-white text-neutral-600 border border-neutral-200 px-2.5 py-1 rounded-lg font-bold tracking-tight transition duration-150 flex items-center gap-1 opacity-0 group-hover:opacity-100"
-                            title="Sync calendar event"
-                          >
-                            Sync Cal
-                          </button>
-                        )
-                      )}
-
                       {/* Desktop manual priority reordering helpers */}
                       <div className="hidden sm:flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button

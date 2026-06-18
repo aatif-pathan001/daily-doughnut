@@ -1,9 +1,9 @@
 {
-  "projectId": "gen-lang-client-0259693771",
-  "appId": "1:380130040359:web:18ea15b6b649b890258c02",
-  "apiKey": "AIzaSyDe9_LJOERuEuwPcO-dD83Rbro9e-84y9k",
-  "authDomain": "gen-lang-client-0259693771.firebaseapp.com",
-  "storageBucket": "gen-lang-client-0259693771.firebasestorage.app",
-  "messagingSenderId": "380130040359",
-  "measurementId": ""
+  "apiKey": "AIzaSyA9cRfRpGIvJpr59GFINHkojcCmw-L3A8Y",
+  "authDomain": "daily-doughnut.firebaseapp.com",
+  "projectId": "daily-doughnut",
+  "storageBucket": "daily-doughnut.firebasestorage.app",
+  "messagingSenderId": "791703393857",
+  "appId": "1:791703393857:web:ac01fd0db893759be718c0",
+  "measurementId": "G-3NSNVFBZN7"
 }
