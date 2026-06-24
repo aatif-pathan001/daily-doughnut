@@ -21,6 +21,7 @@ import { Planner } from "./components/Planner";
 import { OngoingWorkTracker } from "./components/OngoingWorkTracker";
 import { MentalNoise } from "./components/MentalNoise";
 import { DailyCheckOut } from "./components/DailyCheckOut";
+import { DataHub } from "./components/DataHub";
 import { Sparkles, Calendar, Heart, Shield, Terminal, ArrowRight, RefreshCw } from "lucide-react";
 
 export default function App() {
@@ -320,32 +321,161 @@ export default function App() {
     if (!originalTask) return;
 
     // Check if the date actually changed
+    const isChangingToWeekly = newDateString === "weekly";
+    const isChangingFromWeekly = originalTask.type === "week";
     const isDifferentDate = originalTask.date !== newDateString;
-    const newDeferralCount = isDifferentDate 
-      ? (originalTask.deferralCount || 0) + 1 
-      : (originalTask.deferralCount || 0);
+
+    let newDeferralCount = originalTask.deferralCount || 0;
+    if (isDifferentDate && !isChangingFromWeekly && !isChangingToWeekly) {
+      newDeferralCount = (originalTask.deferralCount || 0) + 1;
+    }
 
     const defaultOrder = tasks.filter((t) => t.date === newDateString).length;
+    
+    const taskUpdates: any = {
+      date: newDateString,
+      order: defaultOrder,
+      deferralCount: newDeferralCount,
+    };
+    if (isChangingFromWeekly) {
+      taskUpdates.type = "day";
+    } else if (isChangingToWeekly) {
+      taskUpdates.type = "week";
+    }
+
     if (user) {
       try {
         const taskRef = doc(db, "tasks", id);
-        await updateDoc(taskRef, { 
-          date: newDateString, 
-          order: defaultOrder,
-          deferralCount: newDeferralCount
-        });
+        await updateDoc(taskRef, taskUpdates);
         setTasks((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, date: newDateString, order: defaultOrder, deferralCount: newDeferralCount } : t))
+          prev.map((t) => (t.id === id ? { ...t, ...taskUpdates } : t))
         );
       } catch (e) {
         console.error("Critical rescheduling update failed", e);
       }
     } else {
       const updated = tasks.map((t) =>
-        t.id === id ? { ...t, date: newDateString, order: defaultOrder, deferralCount: newDeferralCount } : t
+        t.id === id ? { ...t, ...taskUpdates } : t
       );
       setTasks(updated);
       localStorage.setItem("planner_tasks", JSON.stringify(updated));
+    }
+  };
+
+  const handleImportData = async (importedTasks: any[], importedWorks: any[], importedReflections: any[]) => {
+    const activeUid = user ? user.uid : "local";
+    
+    // 1. Process Tasks
+    const cleanedTasks: TaskItem[] = [];
+    for (const t of importedTasks) {
+      const cleanTask = {
+        uid: activeUid,
+        title: String(t.title),
+        type: (t.type === "week" ? "week" : "day") as "day" | "week",
+        date: t.date ? String(t.date) : "weekly",
+        completed: !!t.completed,
+        order: typeof t.order === "number" ? t.order : 0,
+        createdAt: t.createdAt ? String(t.createdAt) : new Date().toISOString(),
+        duration: typeof t.duration === "number" ? t.duration : 30,
+        deferralCount: typeof t.deferralCount === "number" ? t.deferralCount : 0,
+      };
+
+      if (user) {
+        try {
+          const docRef = await addDoc(collection(db, "tasks"), cleanTask);
+          cleanedTasks.push({ id: docRef.id, ...cleanTask });
+        } catch (e) {
+          console.error("Failed to import task to firestore:", e);
+        }
+      } else {
+        cleanedTasks.push({ id: crypto.randomUUID(), ...cleanTask });
+      }
+    }
+
+    // 2. Process Ongoing Works
+    const cleanedWorks: OngoingWork[] = [];
+    for (const w of importedWorks) {
+      const cleanSubtasks = Array.isArray(w.subtasks) ? w.subtasks.map((s: any) => ({
+        id: s.id || crypto.randomUUID(),
+        title: String(s.title),
+        completed: !!s.completed,
+        assignedDate: s.assignedDate ? String(s.assignedDate) : undefined,
+      })) : [];
+
+      const cleanWork = {
+        uid: activeUid,
+        title: String(w.title),
+        reason: String(w.reason || "Mindful priority"),
+        status: (w.status === "completed" || w.status === "paused" ? w.status : "active") as "active" | "completed" | "paused",
+        createdAt: w.createdAt ? String(w.createdAt) : new Date().toISOString(),
+        completedAt: w.completedAt ? String(w.completedAt) : null,
+        targetCompletionDate: w.targetCompletionDate ? String(w.targetCompletionDate) : undefined,
+        subtasks: cleanSubtasks,
+      };
+
+      if (user) {
+        try {
+          const docRef = await addDoc(collection(db, "ongoingWork"), cleanWork);
+          cleanedWorks.push({ id: docRef.id, ...cleanWork });
+        } catch (e) {
+          console.error("Failed to import ongoing work to firestore:", e);
+        }
+      } else {
+        cleanedWorks.push({ id: crypto.randomUUID(), ...cleanWork });
+      }
+    }
+
+    // 3. Process Daily Reflections / Checkouts
+    const cleanedReflections: any[] = [];
+    for (const r of importedReflections) {
+      const cleanRef = {
+        uid: activeUid,
+        date: r.date ? String(r.date) : selectedDate,
+        text: String(r.text),
+        createdAt: r.createdAt ? String(r.createdAt) : new Date().toISOString(),
+      };
+
+      if (user) {
+        try {
+          await addDoc(collection(db, "reflections"), cleanRef);
+          cleanedReflections.push({ id: crypto.randomUUID(), ...cleanRef });
+        } catch (e) {
+          console.error("Failed to import daily reflection to firestore:", e);
+        }
+      } else {
+        cleanedReflections.push({ id: crypto.randomUUID(), ...cleanRef });
+      }
+    }
+
+    // Update state & local storage
+    if (cleanedTasks.length > 0) {
+      setTasks((prev) => [...prev, ...cleanedTasks]);
+      if (!user) {
+        const allLocalTasks = [...tasks, ...cleanedTasks];
+        localStorage.setItem("planner_tasks", JSON.stringify(allLocalTasks));
+      }
+    }
+
+    if (cleanedWorks.length > 0) {
+      setOngoingWorks((prev) => [...prev, ...cleanedWorks]);
+      if (!user) {
+        const allLocalWorks = [...ongoingWorks, ...cleanedWorks];
+        localStorage.setItem("planner_works", JSON.stringify(allLocalWorks));
+      }
+    }
+
+    if (cleanedReflections.length > 0) {
+      const localRefsStr = localStorage.getItem("daily_checkouts");
+      const localRefs: any[] = localRefsStr ? JSON.parse(localRefsStr) : [];
+      const updatedRefs = [...localRefs, ...cleanedReflections];
+      localStorage.setItem("daily_checkouts", JSON.stringify(updatedRefs));
+      
+      cleanedReflections.forEach((ref) => {
+        localStorage.setItem(`checked_out_${ref.date}`, "true");
+      });
+      
+      // Notify components to update
+      window.dispatchEvent(new Event("storage"));
     }
   };
 
@@ -570,6 +700,14 @@ export default function App() {
                 onDeleteOngoingWork={handleDeleteOngoingWork}
                 onUpdateOngoingWork={handleUpdateOngoingWork}
                 onAddTask={handleAddTask}
+              />
+
+              {/* Data Portability & Sync center */}
+              <DataHub
+                user={user}
+                tasks={tasks}
+                ongoingWorks={ongoingWorks}
+                onImportData={handleImportData}
               />
             </div>
 

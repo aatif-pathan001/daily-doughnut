@@ -12,6 +12,7 @@ import {
   ArrowDown,
   RefreshCw,
   ExternalLink,
+  GripVertical,
 } from "lucide-react";
 
 interface PlannerProps {
@@ -43,6 +44,12 @@ export const Planner: React.FC<PlannerProps> = ({
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
   const [hoveredDay, setHoveredDay] = useState<string | null>(null);
+  const [isFocusPlanHovered, setIsFocusPlanHovered] = useState(false);
+  const [isWeeklySectionHovered, setIsWeeklySectionHovered] = useState(false);
+
+  const draggedTask = tasks.find((t) => t.id === draggedTaskId);
+  const isDraggingWeeklyGoal = draggedTask?.type === "week";
+  const isDraggingDailyTask = draggedTask?.type === "day";
 
   // Generate the 7 days of the current week (Mon-Sun)
   const getWeekDays = () => {
@@ -283,7 +290,30 @@ export const Planner: React.FC<PlannerProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* Left Column (2/3): Today's Tasks */}
-        <div className="md:col-span-2 bg-white border border-gray-100 rounded-3xl p-5 md:p-6 shadow-sm flex flex-col">
+        <div
+          onDragOver={(e) => {
+            if (isDraggingWeeklyGoal) {
+              e.preventDefault();
+              setIsFocusPlanHovered(true);
+            }
+          }}
+          onDragLeave={() => setIsFocusPlanHovered(false)}
+          onDrop={async (e) => {
+            if (isDraggingWeeklyGoal && draggedTaskId) {
+              e.preventDefault();
+              setIsFocusPlanHovered(false);
+              await onRescheduleTask(draggedTaskId, selectedDate);
+              setDraggedTaskId(null);
+            }
+          }}
+          className={`md:col-span-2 bg-white border rounded-3xl p-5 md:p-6 shadow-sm flex flex-col transition-all duration-300 ${
+            isDraggingWeeklyGoal 
+              ? isFocusPlanHovered
+                ? "border-emerald-500 bg-emerald-50/20 scale-[1.005] shadow-md"
+                : "border-dashed border-2 border-emerald-300 bg-emerald-50/5"
+              : "border-gray-100"
+          }`}
+        >
           <div className="flex items-center justify-between mb-4 pb-2 border-b border-neutral-50">
             <div>
               <h3 className="font-display font-semibold text-base text-neutral-800 tracking-tight">
@@ -457,7 +487,30 @@ export const Planner: React.FC<PlannerProps> = ({
         </div>
 
         {/* Right Column: Weekly goals */}
-        <div className="bg-white border border-gray-100 rounded-3xl p-5 md:p-6 shadow-sm flex flex-col h-[480px]">
+        <div
+          onDragOver={(e) => {
+            if (isDraggingDailyTask) {
+              e.preventDefault();
+              setIsWeeklySectionHovered(true);
+            }
+          }}
+          onDragLeave={() => setIsWeeklySectionHovered(false)}
+          onDrop={async (e) => {
+            if (isDraggingDailyTask && draggedTaskId) {
+              e.preventDefault();
+              setIsWeeklySectionHovered(false);
+              await onRescheduleTask(draggedTaskId, "weekly");
+              setDraggedTaskId(null);
+            }
+          }}
+          className={`border rounded-3xl p-5 md:p-6 shadow-sm flex flex-col h-[480px] transition-all duration-300 ${
+            isDraggingDailyTask
+              ? isWeeklySectionHovered
+                ? "border-sky-500 bg-sky-50/20 scale-[1.005] shadow-md"
+                : "border-dashed border-2 border-sky-300 bg-sky-50/5"
+              : "border-gray-100 bg-white"
+          }`}
+        >
           <div className="mb-4">
             <h3 className="font-display font-semibold text-sm text-neutral-800 tracking-tight flex items-center gap-2">
               General Weekly Priorities
@@ -494,13 +547,17 @@ export const Planner: React.FC<PlannerProps> = ({
               {weeklyGoals.map((task) => (
                 <div
                   key={task.id}
-                  className={`p-3.5 rounded-2xl border transition flex items-center justify-between gap-2 hover:border-black ${
+                  draggable
+                  onDragStart={() => handleDragStart(task.id)}
+                  onDragEnd={() => setDraggedTaskId(null)}
+                  className={`p-3.5 rounded-2xl border transition flex items-center justify-between gap-2 hover:border-black cursor-grab active:cursor-grabbing select-none ${
                     task.completed
                       ? "bg-[#F8F9FA]/80 border-gray-100 text-neutral-400 opacity-60"
                       : "bg-[#FDFDFD] border-gray-100 text-neutral-800"
-                  }`}
+                  } ${draggedTaskId === task.id ? "opacity-30 border-dashed" : ""}`}
                 >
                   <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                    <GripVertical className="w-3.5 h-3.5 text-neutral-300 shrink-0 cursor-grab hover:text-neutral-500" />
                     <button
                       onClick={() => onToggleComplete(task.id, !task.completed)}
                       className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition duration-150 ${
